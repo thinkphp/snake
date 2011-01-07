@@ -3,7 +3,7 @@ Snake
 
 A plugin for Snake Game, just for fun.
 
-![Screenshot](http://farm6.static.flickr.com/5082/5330357247_f6f2fdd892.jpg)
+![Screenshot](http://farm6.static.flickr.com/5083/5333901742_a2097a5b33.jpg)
 
 How to use
 ----------
