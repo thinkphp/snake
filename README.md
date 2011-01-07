@@ -1,7 +1,7 @@
 Snake
 =====
 
-A simple version plugin of snake game based on MooTools framework.
+A plugin for Snake Game, just for fun.
 
 ![Screenshot](http://farm6.static.flickr.com/5082/5330357247_f6f2fdd892.jpg)
 
