@@ -1,0 +1,384 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+   <title>JavaScript Snake Game</title>
+   <style type="text/css">
+   html, body {margin: 0;padding: 0; height: 100%;}
+   body {font-family: arial, helvetica, sans-serif;    font-size: 12px;    line-height: 1.2em;}
+   #header {font-size:1em;list-style:none;margin: 0 auto;padding:5px 0;width:300px;}
+   .header-title {font-weight: bold}
+   p {    margin: 0;    padding: 0;}
+
+   #container {position: absolute; width: 300px; height: 300px;left: 50%;top: 55%; margin-top: -180px;margin-left: -151px;z-index: 1;}
+
+   #snake {clear: both;border: solid 1px #DDDDDD;}
+   #snake table {}
+   #snake td {width: 20px; height: 20px; background: #EEEEEE;}
+   #snake td.snake-segment {background-color: green;}            
+   #snake td.apple { background-color: red;}
+   #snake td.dead { background-color: #666666;}
+
+#key-snake-segment {    color: green; }
+#key-apple {    color: red; }
+
+  #high-score-p { background-color:#faf988;color:#000;font-size:0.8em;padding:2px;position:relative;text-align:center;}
+  #reset-high-score {color:#111;position:absolute;right:5px;top:2px;}
+  #creator {position: absolute;left: 0;top:0;padding: 2px;color: #111}
+  #creator a {color: #111}
+
+  #stats {position: relative;background: #c0dbb4; line-height: 1em;}
+  .stat {padding: 5px;}
+  #time-p {position: absolute; right: 0; top: 0}
+  #score-p {}
+
+  .snake {color: green}
+  .apple {color: red}
+  #speed-slow,#speed-medium,#speed-fast {color: #393}
+   </style>
+   <script type="text/javascript">
+   /**
+    * @param divId  (String)       id of the div where to insert snake board.
+    * @param width  (Integer)      width of game board (in snake segments units).
+    * @param height (Integer)      height of game board (in snake segments units). 
+    * @param scoreId (String)      id of the element to insert score into (tipically a span)
+    * @param timeId (String)       id of the element to insert time into (tipically a span)
+    * @param highScoreId (String)  id of the element to insert highscore
+    * @param resetId (String)      id of the element reset button. 
+    * @speedPrefixId               prefix to the IDs to append '-slow', '-medium', '-fast' for speed button links   
+    */
+   var Snake = function(divId, width, height, scoreId, timeId, highScoreId, resetId, speedPrefixId) {
+       var $ = function(id) {return document.getElementById(id);}
+       var div = document.getElementById(divId),
+           scoreField = document.getElementById(scoreId),
+           timeField = document.getElementById(timeId),
+           highScoreField = document.getElementById(highScoreId),
+           resetButton = document.getElementById(resetId),
+           speeds = [{speed: 'slow', value: 200}, {speed: 'medium', value: 150}, {speed: 'fast', value: 100}],
+           table;
+
+       var delay, 
+           inGame,
+           snake,
+           apple,
+           score,
+           startTime,
+           gameDuration;
+    
+           /* init */
+           createTable();
+
+           /* set default delay to fast */
+           delay = speeds[2].value;
+ 
+           /* set high score*/
+           displayHighScore();
+
+          /* Bind the buttons speed at right click events */
+          for(var i=0,j=speeds.length; i<j; i++) {
+              $(speedPrefixId + speeds[i].speed).onclick = (function(i,d) {
+                     return function(){
+                       delay = d;
+                       if(!inGame) {
+                          startGame();  
+                       }
+                       return false;
+                     }
+              })(i,speeds[i].value);
+          } 
+
+
+           resetButton.onclick = function(e) {
+                setHighScore(0);
+                displayHighScore()   
+                cancelClick(e);
+           }
+
+           function createTable() {
+               table = document.createElement('table');
+
+               for(var y=0; y < height; y++) {
+                   var row = table.insertRow(y);
+                   for(var x=0; x < width; x++) {
+                       var col = row.insertCell(x);
+                   } 
+               }  
+               div.appendChild(table);
+           }
+
+           function clearTable() {
+               for(var y=0; y < height; y++) {
+                   var row = table.rows[y];
+                   for(var x=0; x < width; x++) {
+                       row.cells[x].className = '';
+                   } 
+               }  
+           }
+
+           function getRandomCellApple() {
+               var cell = {};
+               while(!cell.x || !cell.y || !cell.tableCell || cell.tableCell.className != '') {
+                   cell.x = Math.floor(Math.random() * width);
+                   cell.y = Math.floor(Math.random() * height);
+                   cell.tableCell = table.rows[cell.y].cells[cell.x]; 
+               }
+              return cell;
+           }
+
+           function generateApple() {
+               apple = getRandomCellApple();
+               apple.tableCell.className = 'apple';
+           } 
+
+           function generateSnake() {
+               snake = {};
+               snake.heading = 'right';
+               snake.segments = [{x: Math.floor(width/2), y: Math.floor(height/2)}]; 
+               snake.segments[0].tableCell = table.rows[snake.segments[0].y].cells[snake.segments[0].x]
+               snake.segments[0].tableCell.className = 'snake-segment'; 
+               snake.segmentHeadIndex = 0;
+           }
+
+           function displayTime() {
+               gameDuration = Math.floor((new Date().getTime() - startTime) / 1000);
+               timeField.innerHTML = gameDuration + 's'; 
+           }
+
+           function cancelClick(e) {
+
+                 if(window.event) {
+                    window.event.returnValue = false;
+                    window.event.cancelBubble = true;  
+                 } 
+
+                 if(e && e.preventDefault && e.stopPropagation) {
+                    e.preventDefault();
+                    e.stopPropagation(); 
+                 }
+           } 
+
+           function startGame() {
+                 inGame = true;
+                 score = 0;
+                 startTime = new Date().getTime();
+                 //displayScore();
+                 displayTime();
+                 clearTable();
+                 generateSnake();
+                 generateApple();
+                 window.setTimeout(move, delay);
+           }
+
+           function move() {
+
+                  var snakeHead = snake.segments[snake.segmentHeadIndex],
+                      nextCell = {x: snakeHead.x, y: snakeHead.y};
+
+                      displayTime(); 
+                      /* apply directional heading to nextCell */
+                      switch(snake.heading) {
+                          case 'left':
+                          nextCell.x--; 
+                          break;
+
+                          case 'right':
+                          nextCell.x++; 
+                          break;
+
+                          case 'down':
+                          nextCell.y++; 
+                          break;
+
+                          case 'up':
+                          nextCell.y--; 
+                          break;
+                      } 
+                 
+                 if(checkSegmentAgainstBoundsAndSelf(nextCell)) {
+                    
+                    nextCell.tableCell = table.rows[nextCell.y].cells[nextCell.x];  
+
+                    if(checkSegmentAgainstApple(nextCell)) {
+
+                      score++;
+                      displayScore();
+                      addSegmentToHead(nextCell);
+                      generateApple(); 
+
+                    } else {
+                      movin(nextCell);                      
+                    }                  
+     
+                    window.setTimeout(move, delay);
+                 } else {
+                   endGame();
+                 }                  
+           }   
+
+           //add handler to the keydown events keys(down,up,right,left) ie. bind the keyboard
+           document.onkeydown = function(e) {
+                e = e || window.event;
+
+                switch(e.keyCode) {
+
+                     //press left
+                     case 37:  
+                     if(inGame && snake.heading != 'right') {
+                        snake.heading = 'left';
+                     }
+                     break;
+
+                     //press right
+                     case 39:
+                     if(inGame && snake.heading != 'left') {
+                        snake.heading = 'right';
+                     }
+                     break;
+
+                     case 38:
+                     if(inGame && snake.heading != 'down') {
+                        snake.heading = 'up';
+                     }
+                     break;
+
+                     case 40:
+                     if(inGame && snake.heading != 'up') {
+                        snake.heading = 'down';
+                     }
+                     break;
+                }//end switch
+
+           }//end handler for keydown event.
+
+           /* returns TRUE if segment at same cell as the apple. */ 
+           function checkSegmentAgainstApple(segment) {
+                if(segment.x == apple.x && segment.y == apple.y) {
+                   return true; 
+                }  
+             return false;
+           } 
+
+           /* check the segment position against bounds and itself . retuns false for invalid. */
+           function checkSegmentAgainstBoundsAndSelf(segment) {
+                if(segment.x < 0 || segment.y < 0 || segment.x >= width || segment.y >= height) {
+                    return false;
+                }  
+                
+                for(var i=0,j=snake.segments.length;i<j;i++) {
+                    if(segment.x == snake.segments[i].x && segment.y == snake.segments[i].y) {
+                       return false; 
+                    }
+                } 
+             return true;
+           } 
+           
+           function grayOutBoard() {
+              for(var i=0,j=snake.segments.length;i<j;i++) {
+                      snake.segments[i].tableCell.className = 'dead';
+              }
+              if(apple) {
+                 apple.tableCell.className = 'dead';
+              }
+           }
+
+           function endGame() {
+              inGame = false;
+              grayOutBoard();
+              checkAndSetHighScore();
+              displayHighScore(); 
+           }
+
+           function movin(segment) {
+              var newHeadIndex = snake.segmentHeadIndex;
+
+              newHeadIndex--;
+              if(newHeadIndex < 0) {
+                  newHeadIndex = snake.segments.length - 1;   
+              }
+
+              snake.segments[newHeadIndex].tableCell.className = '';
+              segment.tableCell.className = 'snake-segment';
+              snake.segments[newHeadIndex] = segment;
+              snake.segmentHeadIndex = newHeadIndex;
+           }  
+
+           function addSegmentToHead(segment) {
+
+              var newSegments = new Array(snake.segments.length + 1);
+              newSegments[0] = segment;
+              /* copy over the remaining segments */    
+              for(var i=0,j=snake.segments.length;i<j;i++) {
+                      var k = i + snake.segmentHeadIndex;
+                      if(k>=snake.segments.length) {k -= snake.segments.length;} 
+                      newSegments[i+1] = snake.segments[k];   
+              }
+              
+              snake.segments = newSegments;
+              snake.segmentHeadIndex = 0;
+              snake.segments[0].tableCell.className = 'snake-segment';
+           } 
+
+           function displayScore() {
+              scoreField.innerHTML = score; 
+           }
+
+           function checkAndSetHighScore() {
+               var highScore = getHighScore();
+               if(score > highScore) {
+                  setHighScore(score);    
+               } 
+           }
+
+           function setHighScore(score) {
+               document.cookie = 'snake-high-score=' + score + '; expires=Fri, 31 Dec 23:59:59 GMT;'; 
+           }
+
+           function displayHighScore() {
+               highScoreField.innerHTML = getHighScore();
+           }
+
+           /* returns 0 if no highscore set */
+           function getHighScore() {
+
+               var key = 'snake-high-score';
+               var startIndex = document.cookie.indexOf(key + '=');
+
+               if(startIndex > -1) {
+                  var endIndex = document.cookie.indexOf(';', startIndex);
+                  if(endIndex == -1) endIndex = document.cookie.length;
+                 return document.cookie.substring(startIndex + key.length + 1, endIndex); 
+               }
+
+            return 0; 
+           }
+
+   }//end Snake
+
+   window.onload = function() {
+          new Snake('snake', 15, 15, 'score', 'time', 'high-score', 'reset-high-score', 'speed-');
+
+   } 
+   </script>
+</head>
+<body>
+<center><h1>JavaScript Snake Game</h1></center>
+<div>
+   <ul id="header">
+       <li><span class="header-title">Objective:</span> collect as many apples as possible</li>
+       <li><span class="header-title">Controls:</span> arrows keys</li>
+       <li><span class="header-title">Colors:</span> <span class="snake">Snake</span>, <span class="apple">Apple</span></li>
+       <li><span class="header-title">Start Game:</span> <a href="#" id="speed-slow">Slow</a> | <a href="#" id="speed-medium">Medium</a> | <a href="#" id="speed-fast">Fast</a></li>
+   </ul>
+</div> 
+<div id="container">
+        <div id="stats">
+          <p id="score-p" class="stat"><span class="stat-title">Score: </span><span id="score">0</span></p>
+          <p id="time-p" class="stat"><span class="stat-title">Time: </span><span id="time"></span></p>
+        </div>
+          <div id="snake"></div>
+          <p id="high-score-p">Your high score <span id="high-score"></span> <a href="#" id="reset-high-score">reset</a> <span href="#" id="creator">By @<a href="http://twitter.com/thinkphp">thinkphp</a></span></p> 
+   </div>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,7 @@
+name: Snake
+author: thinkphp
+current: v1.0
+category: Widgets
+tags: [game, snake, segments, periodical, fun, apple, delay, health]
+docs: https://github.com/thinkphp/snake/blob/master/Docs/snake.md
+demo: http://thinkphp.github.com/snake/
